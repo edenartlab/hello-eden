@@ -1,11 +1,18 @@
 import Image from "next/image";
 import { useState } from "react";
 import axios from "axios";
+import SignInButton from "@/components/SignInButton";
+import { useSession } from "next-auth/react";
+import { useEdenUser } from "@/hooks/useEdenUser";
 
 export default function Home() {
   const [prompt, setPrompt] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [resultImageUrl, setResultImageUrl] = useState(undefined);
+  const session = useSession();
+  const { user } = useEdenUser({
+    isAuthenticated: session.status === "authenticated",
+  });
 
   const handleSubmit = async () => {
     try {
@@ -53,6 +60,10 @@ export default function Home() {
       >
         {isCreating ? "Creating..." : "Create"}
       </button>
+      <SignInButton />
+      {session.data?.user && (
+        <div className="mt-4">{session.data?.user?.id}</div>
+      )}
     </main>
   );
 }
