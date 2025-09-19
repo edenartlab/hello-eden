@@ -7,6 +7,7 @@ import axios from "axios";
 export default function CreatePage() {
   const [prompt, setPrompt] = useState("");
   const [type, setType] = useState<"image" | "video">("image");
+  const [modelPreference, setModelPreference] = useState<string>("");
   const [isCreating, setIsCreating] = useState(false);
   const [resultUrl, setResultUrl] = useState<string | undefined>(undefined);
 
@@ -19,6 +20,7 @@ export default function CreatePage() {
       const taskResponse = await axios.post("/api/tasks", {
         text_input: prompt,
         type,
+        model_preference: modelPreference || undefined,
       });
       const { taskId } = taskResponse.data;
 
@@ -55,7 +57,10 @@ export default function CreatePage() {
                   type="radio"
                   value="image"
                   checked={type === "image"}
-                  onChange={(e) => setType(e.target.value as "image")}
+                  onChange={(e) => {
+                    setType(e.target.value as "image");
+                    setModelPreference("");
+                  }}
                   className="mr-2"
                 />
                 Image
@@ -65,12 +70,50 @@ export default function CreatePage() {
                   type="radio"
                   value="video"
                   checked={type === "video"}
-                  onChange={(e) => setType(e.target.value as "video")}
+                  onChange={(e) => {
+                    setType(e.target.value as "video");
+                    setModelPreference("");
+                  }}
                   className="mr-2"
                 />
                 Video
               </label>
             </div>
+          </div>
+
+          <div>
+            <label htmlFor="modelPreference" className="block text-sm font-medium mb-2">
+              Model Preference (Optional)
+            </label>
+            <select
+              id="modelPreference"
+              value={modelPreference}
+              onChange={(e) => setModelPreference(e.target.value)}
+              className="w-full rounded-md border-gray-600 bg-gray-700 text-white p-3"
+            >
+              <option value="">Auto (Recommended)</option>
+              {type === "video" ? (
+                <>
+                  <option value="kling">Kling</option>
+                  <option value="seedance">Seedance</option>
+                  <option value="runway">Runway</option>
+                  <option value="veo">Veo</option>
+                </>
+              ) : (
+                <>
+                  <option value="seedream">Seedream</option>
+                  <option value="openai">OpenAI</option>
+                  <option value="flux">Flux</option>
+                  <option value="nano_banana">Nano Banana</option>
+                </>
+              )}
+            </select>
+            <p className="text-xs text-gray-400 mt-1">
+              {type === "video" 
+                ? "Choose a specific video generation model or leave on Auto for best results"
+                : "Choose a specific image generation model or leave on Auto for best results"
+              }
+            </p>
           </div>
           
           <div>

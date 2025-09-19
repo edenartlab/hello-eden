@@ -58,31 +58,114 @@ export interface ChatSession {
 // Creation functions
 export async function createTask(
   prompt: string,
-  type: "image" | "video" = "image"
+  type: "image" | "video" = "image",
+  modelPreference?: string
 ): Promise<{ taskId: string }> {
-  // TODO: Implement HTTP call to Eden API
-  console.log(`Creating ${type} task with prompt:`, prompt);
-
-  // Placeholder: return mock task ID
-  return {
-    taskId: `task_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
+  const payload: {
+    tool: string;
+    args: {
+      prompt: string;
+      output?: string;
+      model_preference?: string;
+    };
+    makePublic: boolean;
+  } = {
+    tool: "create",
+    args: {
+      prompt: prompt,
+    },
+    makePublic: true,
   };
+
+  // Add output type for video
+  if (type === "video") {
+    payload.args.output = "video";
+  }
+
+  // Add model preference if specified
+  if (modelPreference) {
+    payload.args.model_preference = modelPreference;
+  }
+
+  try {
+    const response = await fetch(`${EDEN_API_BASE}/v2/tasks/create`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Api-Key": process.env.EDEN_API_KEY || "",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Eden API Error ${response.status}:`, errorText);
+      throw new Error(`Eden API ${response.status}: ${errorText}`);
+    }
+
+    const data = await response.json();
+    console.log("Task creation response:", data);
+
+    // API returns { task: { _id: "...", ... } }
+    const taskId =
+      data.task?._id || data.taskId || data.task_id || data.id || data._id;
+
+    if (!taskId) {
+      console.error("No taskId found in response:", data);
+      throw new Error("No taskId returned from Eden API");
+    }
+
+    return { taskId };
+  } catch (error) {
+    console.error("Failed to create task:", error);
+    throw error;
+  }
 }
 
 export async function pollTask(taskId: string): Promise<Task> {
-  // TODO: Implement HTTP call to Eden API
-  console.log("Polling task:", taskId);
+  console.log("Polling task with ID:", taskId);
 
-  // Placeholder: return mock task status
-  return {
-    taskId,
-    status: "completed",
-    creation: {
-      uri: `https://via.placeholder.com/500?text=${encodeURIComponent(
-        "Generated Image"
-      )}`,
-    },
-  };
+  if (!taskId || taskId === "undefined") {
+    throw new Error("Invalid taskId provided to pollTask");
+  }
+
+  try {
+    const response = await fetch(`${EDEN_API_BASE}/v2/tasks/${taskId}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Api-Key": process.env.EDEN_API_KEY || "",
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Eden API Error ${response.status}:`, errorText);
+      throw new Error(`Eden API ${response.status}: ${errorText}`);
+    }
+
+    const data = await response.json();
+    console.log("Task poll response:", data);
+
+    // API returns { task: { _id: "...", status: "...", result: [...] } }
+    const task = data.task || data;
+
+    // Map API response to our Task interface
+    return {
+      taskId: task._id || task.taskId || task.task_id || task.id || taskId,
+      status: task.status,
+      creation:
+        task.result && task.result.length > 0 && task.result[0].output
+          ? {
+              uri:
+                task.result[0].output[0]?.url || task.result[0].output[0]?.uri,
+            }
+          : undefined,
+    };
+  } catch (error) {
+    console.error("Failed to poll task:", error);
+    throw error;
+  }
 }
 
 // Chat functions

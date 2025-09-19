@@ -2,10 +2,10 @@ import { createTask } from "@/lib/eden";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
-  const { text_input, type = 'image' } = await request.json();
+  const { text_input, type = 'image', model_preference } = await request.json();
 
   try {
-    const { taskId } = await createTask(text_input, type);
+    const { taskId } = await createTask(text_input, type, model_preference);
     return NextResponse.json({ taskId });
   } catch (error) {
     console.error(error);
