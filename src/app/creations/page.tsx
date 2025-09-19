@@ -42,7 +42,7 @@ export default function CreationsPage() {
   
   // Filters
   const [typeFilter, setTypeFilter] = useState<"all" | "image" | "video">("all");
-  const [ownershipFilter, setOwnershipFilter] = useState<"all" | "mine">("mine");
+  const [ownershipFilter, setOwnershipFilter] = useState<"mine" | "agents" | "all">("mine");
 
   // Modal state
   const [selectedCreationId, setSelectedCreationId] = useState<string | null>(null);
@@ -76,6 +76,8 @@ export default function CreationsPage() {
       
       if (ownershipFilter === "mine") {
         params.append('onlyMine', 'true');
+      } else if (ownershipFilter === "agents") {
+        params.append('onlyAgents', 'true');
       }
 
       const response = await axios.get(`/api/creations?${params.toString()}`);
@@ -191,6 +193,16 @@ export default function CreationsPage() {
                 }`}
               >
                 Mine
+              </button>
+              <button
+                onClick={() => setOwnershipFilter("agents")}
+                className={`flex-1 px-4 py-2 rounded ${
+                  ownershipFilter === "agents"
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                }`}
+              >
+                Agents
               </button>
               <button
                 onClick={() => setOwnershipFilter("all")}

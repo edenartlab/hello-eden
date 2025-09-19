@@ -13,6 +13,7 @@ export async function GET(request: NextRequest) {
     | "all"
     | undefined;
   const onlyMine = searchParams.get("onlyMine") === "true";
+  const onlyAgents = searchParams.get("onlyAgents") === "true";
   const sort = searchParams.get("sort") || undefined;
 
   // Build filters array
@@ -31,6 +32,7 @@ export async function GET(request: NextRequest) {
       limit,
       type: type || "all",
       onlyMine,
+      onlyAgents,
       sort,
       filter: filters.length > 0 ? filters : undefined,
     });

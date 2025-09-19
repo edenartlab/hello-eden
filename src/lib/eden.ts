@@ -155,6 +155,7 @@ export async function getCreations(filters?: {
   limit?: number;
   type?: "image" | "video" | "all";
   onlyMine?: boolean;
+  onlyAgents?: boolean;
   sort?: string;
   filter?: string[];
 }): Promise<CreationsResponse> {
@@ -172,14 +173,14 @@ export async function getCreations(filters?: {
       params.append("filter", `output_type;${filters.type}`);
     }
 
-    // Always filter by the specific agent user
-    if (process.env.NEXT_PUBLIC_EDEN_AGENT_ID) {
+    // Filter by agent when onlyAgents is true
+    if (filters?.onlyAgents && process.env.NEXT_PUBLIC_EDEN_AGENT_ID) {
       params.append("filter", `agent;${process.env.NEXT_PUBLIC_EDEN_AGENT_ID}`);
       console.log(
         "Added agent filter:",
         `agent;${process.env.NEXT_PUBLIC_EDEN_AGENT_ID}`
       );
-    } else {
+    } else if (filters?.onlyAgents) {
       console.error("NEXT_PUBLIC_EDEN_AGENT_ID not found in environment");
     }
 
@@ -190,9 +191,10 @@ export async function getCreations(filters?: {
 
     console.log("Final request params:", params.toString());
     console.log("OnlyMine flag:", filters?.onlyMine);
+    console.log("OnlyAgents flag:", filters?.onlyAgents);
     console.log(
       "Will authenticate:",
-      !!(filters?.onlyMine && process.env.EDEN_API_KEY)
+      !!((filters?.onlyMine || filters?.onlyAgents) && process.env.EDEN_API_KEY)
     );
 
     console.log(
@@ -206,8 +208,8 @@ export async function getCreations(filters?: {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
-          // Only authenticate if we want private creations (onlyMine=true)
-          ...(filters?.onlyMine &&
+          // Authenticate if we want private creations (onlyMine=true) or agent creations (onlyAgents=true)
+          ...((filters?.onlyMine || filters?.onlyAgents) &&
             process.env.EDEN_API_KEY && {
               "x-api-key": process.env.EDEN_API_KEY,
             }),
@@ -224,7 +226,7 @@ export async function getCreations(filters?: {
       );
       console.error("Request headers:", {
         "Content-Type": "application/json",
-        ...(filters?.onlyMine &&
+        ...((filters?.onlyMine || filters?.onlyAgents) &&
           process.env.EDEN_API_KEY && {
             "x-api-key": process.env.EDEN_API_KEY,
           }),
