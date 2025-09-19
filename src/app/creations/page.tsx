@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import axios from "axios";
+import CreationDetailModal from "@/components/creation-detail-modal";
 
 interface Creation {
   _id: string;
@@ -42,6 +43,10 @@ export default function CreationsPage() {
   // Filters
   const [typeFilter, setTypeFilter] = useState<"all" | "image" | "video">("all");
   const [ownershipFilter, setOwnershipFilter] = useState<"all" | "mine">("mine");
+
+  // Modal state
+  const [selectedCreationId, setSelectedCreationId] = useState<string | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     fetchCreations(true);
@@ -117,6 +122,16 @@ export default function CreationsPage() {
 
   const getMediaUrl = (creation: Creation): string => {
     return creation.thumbnail || creation.uri || creation.url || '';
+  };
+
+  const handleCreationClick = (creationId: string) => {
+    setSelectedCreationId(creationId);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedCreationId(null);
   };
 
   return (
@@ -212,7 +227,8 @@ export default function CreationsPage() {
               return (
                 <div
                   key={creation._id}
-                  className="bg-gray-800 rounded-lg overflow-hidden hover:shadow-xl transition-shadow"
+                  className="bg-gray-800 rounded-lg overflow-hidden hover:shadow-xl transition-shadow cursor-pointer"
+                  onClick={() => handleCreationClick(creation._id)}
                 >
                   {/* Media Preview */}
                   <div className="aspect-square relative bg-gray-700">
@@ -224,6 +240,22 @@ export default function CreationsPage() {
                         className="object-cover"
                         sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
                       />
+                    ) : mediaType === 'video' && creation.thumbnail ? (
+                      <div className="relative w-full h-full">
+                        <Image
+                          src={creation.thumbnail}
+                          alt={creation.prompt || 'Video thumbnail'}
+                          fill
+                          className="object-cover"
+                          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
+                        />
+                        {/* Play button overlay */}
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <div className="bg-black bg-opacity-50 rounded-full p-3">
+                            <div className="text-white text-2xl">▶️</div>
+                          </div>
+                        </div>
+                      </div>
                     ) : mediaType === 'video' ? (
                       <div className="w-full h-full flex items-center justify-center">
                         <div className="text-center">
@@ -314,6 +346,15 @@ export default function CreationsPage() {
             </div>
           )}
         </>
+      )}
+
+      {/* Creation Detail Modal */}
+      {selectedCreationId && (
+        <CreationDetailModal
+          creationId={selectedCreationId}
+          isOpen={isModalOpen}
+          onClose={handleCloseModal}
+        />
       )}
     </div>
   );
