@@ -35,10 +35,43 @@ export interface Creation {
 }
 
 export interface Agent {
-  id: string;
+  _id: string;
+  id?: string;
   name: string;
   description?: string;
-  createdAt: Date;
+  image?: string;
+  userImage?: string;  // This is the actual profile picture field from the API
+  key?: string;
+  persona?: string;
+  greeting?: string;
+  knowledge?: string;
+  voice?: string;
+  models?: Array<{
+    lora: string;
+    use_when?: string;
+  }>;
+  suggestions?: Array<{
+    label: string;
+    prompt: string;
+  }>;
+  tools?: Record<string, boolean>;
+  public?: boolean;
+  owner_pays?: 'off' | 'deployments' | 'full' | boolean;
+  llm_settings?: {
+    model_profile?: 'low' | 'medium' | 'high';
+    thinking_policy?: 'auto' | 'off' | 'always';
+    thinking_effort_cap?: 'low' | 'medium' | 'high';
+    thinking_effort_instructions?: string;
+  };
+  owner?: {
+    _id: string;
+    username?: string;
+    userImage?: string;
+  };
+  isLiked?: boolean;
+  permissions?: any[];
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface ChatMessage {
@@ -53,6 +86,96 @@ export interface ChatSession {
   agentId: string;
   messages: ChatMessage[];
   createdAt: Date;
+}
+
+export interface SessionCreateOptions {
+  agent_ids: string[];
+  content?: string;
+  scenario?: string;
+  budget?: {
+    manna_budget?: number;
+    token_budget?: number;
+    turn_budget?: number;
+  };
+  title?: string;
+  autonomy_settings?: {
+    auto_reply: boolean;
+    reply_interval: number;
+    actor_selection_method: 'random' | 'random_exclude_last';
+  };
+}
+
+export interface Session {
+  _id: string;
+  agent_ids: string[];
+  messages: SessionMessage[];
+  scenario?: string;
+  budget?: {
+    manna_budget?: number;
+    token_budget?: number;
+    turn_budget?: number;
+    tokens_spent?: number;
+    manna_spent?: number;
+    turns_spent?: number;
+  };
+  title?: string;
+  autonomy_settings?: {
+    auto_reply: boolean;
+    reply_interval: number;
+    actor_selection_method: 'random' | 'random_exclude_last';
+  };
+  status: string;
+  active_requests?: any[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ToolCall {
+  id: string;
+  tool: string;
+  args: Record<string, any>;
+  task?: any;
+  cost?: number;
+  status?: string;
+  result?: Array<{
+    output?: Array<{
+      filename?: string;
+      mediaAttributes?: {
+        mimeType?: string;
+        width?: number;
+        height?: number;
+        aspectRatio?: number;
+        blurhash?: string;
+      };
+      creation?: any;
+    }>;
+    subtool_calls?: Array<{
+      tool: string;
+      args: Record<string, any>;
+      output?: string;
+    }>;
+    intermediate_outputs?: Record<string, any>;
+  }>;
+  reactions?: any;
+  error?: any;
+}
+
+export interface SessionMessage {
+  _id: string;
+  session_id?: string;
+  session?: string;
+  role: 'user' | 'assistant' | 'system' | 'eden';
+  content: string;
+  agent_id?: string;
+  sender?: string;
+  attachments?: string[];
+  thinking?: string;
+  thought?: string;
+  finish_reason?: 'stop' | 'length' | 'tool_calls' | 'tool_use' | null;
+  tool_calls?: ToolCall[];
+  reactions?: Record<string, any>;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // Creation functions
@@ -168,7 +291,103 @@ export async function pollTask(taskId: string): Promise<Task> {
   }
 }
 
-// Chat functions
+// Session functions
+export async function createSession(
+  options: SessionCreateOptions
+): Promise<{ session_id: string }> {
+  try {
+    const response = await fetch(`${EDEN_API_BASE}/v2/sessions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Api-Key": process.env.EDEN_API_KEY || "",
+      },
+      body: JSON.stringify(options),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Eden API Error ${response.status}:`, errorText);
+      throw new Error(`Eden API ${response.status}: ${errorText}`);
+    }
+
+    const data = await response.json();
+    console.log("Session creation response:", data);
+
+    return { session_id: data.session_id };
+  } catch (error) {
+    console.error("Failed to create session:", error);
+    throw error;
+  }
+}
+
+export async function getSession(sessionId: string): Promise<Session | null> {
+  try {
+    const response = await fetch(`${EDEN_API_BASE}/v2/sessions/${sessionId}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Api-Key": process.env.EDEN_API_KEY || "",
+      },
+    });
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        return null;
+      }
+      const errorText = await response.text();
+      console.error(`Eden API Error ${response.status}:`, errorText);
+      throw new Error(`Eden API ${response.status}: ${errorText}`);
+    }
+
+    const data = await response.json();
+    console.log("Session get response:", data);
+
+    return data.session;
+  } catch (error) {
+    console.error("Failed to get session:", error);
+    throw error;
+  }
+}
+
+export async function sendSessionMessage(
+  sessionId: string,
+  content: string,
+  attachments?: string[],
+  agent_ids?: string[]
+): Promise<{ session_id: string }> {
+  try {
+    const response = await fetch(`${EDEN_API_BASE}/v2/sessions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Api-Key": process.env.EDEN_API_KEY || "",
+      },
+      body: JSON.stringify({
+        session_id: sessionId,
+        content,
+        attachments,
+        ...(agent_ids && { agent_ids })
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Eden API Error ${response.status}:`, errorText);
+      throw new Error(`Eden API ${response.status}: ${errorText}`);
+    }
+
+    const data = await response.json();
+    console.log("Session message response:", data);
+
+    return { session_id: data.session_id };
+  } catch (error) {
+    console.error("Failed to send session message:", error);
+    throw error;
+  }
+}
+
+// Chat functions (legacy)
 export async function createChatSession(agentId: string): Promise<ChatSession> {
   // TODO: Implement HTTP call to Eden API
   console.log("Creating chat session with agent:", agentId);
@@ -198,32 +417,60 @@ export async function sendChatMessage(
 
 // Agent functions
 export async function listAgents(): Promise<Agent[]> {
-  // TODO: Implement HTTP call to Eden API
-  console.log("Listing agents");
+  try {
+    const response = await fetch(`${EDEN_API_BASE}/v2/agents`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        ...(process.env.EDEN_API_KEY && {
+          "X-Api-Key": process.env.EDEN_API_KEY,
+        }),
+      },
+    });
 
-  // Placeholder: return mock agents
-  return [
-    {
-      id: "agent_1",
-      name: "Creative Assistant",
-      description: "Helps with creative tasks",
-      createdAt: new Date(),
-    },
-    {
-      id: "agent_2",
-      name: "Art Generator",
-      description: "Generates artistic images",
-      createdAt: new Date(),
-    },
-  ];
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Eden API Error ${response.status}:`, errorText);
+      throw new Error(`Eden API ${response.status}: ${errorText}`);
+    }
+
+    const data = await response.json();
+    console.log("Agents list response:", data);
+
+    return data.docs || [];
+  } catch (error) {
+    console.error("Failed to list agents:", error);
+    return [];
+  }
 }
 
 export async function getAgent(agentId: string): Promise<Agent | null> {
-  // TODO: Implement HTTP call to Eden API
-  console.log("Getting agent:", agentId);
+  try {
+    const response = await fetch(`${EDEN_API_BASE}/v2/agents/${agentId}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        ...(process.env.EDEN_API_KEY && {
+          "X-Api-Key": process.env.EDEN_API_KEY,
+        }),
+      },
+    });
 
-  const agents = await listAgents();
-  return agents.find((a) => a.id === agentId) || null;
+    if (!response.ok) {
+      if (response.status === 404) {
+        return null;
+      }
+      const errorText = await response.text();
+      console.error(`Eden API Error ${response.status}:`, errorText);
+      throw new Error(`Eden API ${response.status}: ${errorText}`);
+    }
+
+    const data = await response.json();
+    return data.agent || null;
+  } catch (error) {
+    console.error("Failed to get agent:", error);
+    return null;
+  }
 }
 
 // Creation functions
